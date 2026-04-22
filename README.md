@@ -55,7 +55,15 @@ An intelligent agent that allows users to interact with an electronics store dat
 
 ## 🛠️ Architecture
 
-- **`agent.py`**: The core logic that handles LLM orchestration and SQL translation, featuring a multi-agent pipeline (Schema Specialist, Security Agent, SQL Agent, Validator, etc.).
+- **`agent.py`**: The core logic that handles LLM orchestration and SQL translation. It implements a high-reliability multi-agent pipeline:
+    1. **Schema Specialist**: Prunes the full schema to only include relevant tables (reducing noise/token usage).
+    2. **Security Agent**: Scans for PII leaks and SQL injection patterns.
+    3. **SQL Agent**: Generates the optimized SQLite query.
+    4. **Validator Agent**: Reviews the query and results for logical correctness.
+    5. **Analysis Agent**: Converts raw data into business insights.
+    6. **Critic Agent**: Ensures the analysis accurately answers the original user question.
+    7. **Explanation Agent**: Formats the final answer into a polished, user-friendly response.
+
 - **`server.py`**: The backend server managing API requests, session state, and the embedded ChatGPT-like frontend.
 - **`mcp_server.py`**: Implements the Model Context Protocol for tool-calling capabilities (run_sql, get_schema).
 - **`setup_db.py`**: Script to initialize the SQLite database with sample data.
