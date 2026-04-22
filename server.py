@@ -15,6 +15,7 @@ from google.adk.agents import LlmAgent
 from google.adk.tools.mcp_tool.mcp_toolset import McpToolset, StdioConnectionParams
 from mcp.client.stdio import StdioServerParameters
 from google.adk.runners import Runner
+from agent import PipelineManager
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
@@ -31,6 +32,16 @@ Do not repeat the same mistake; try a different approach if your previous attemp
 session_service = InMemorySessionService()
 _tools = None
 _exit_stack = None
+
+
+def make_agent() -> LlmAgent:
+    return LlmAgent(
+        model="gemini-2.0-flash-001",
+        name="electronics_sql_agent",
+        description="SQL agent for electronics store analytics",
+        instruction=SYSTEM_PROMPT,
+        tools=_tools if _tools is not None else [],
+    )
 
 
 @asynccontextmanager
@@ -57,14 +68,6 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
-def make_agent() -> LlmAgent:
-    return LlmAgent(
-        model="gemini-2.0-flash",
-        name="electronics_sql_agent",
-        description="Text-to-SQL agent for the electronics store database",
-        instruction=SYSTEM_PROMPT,
-        tools=_tools,
-    )
 
 
 class AskRequest(BaseModel):
@@ -76,9 +79,8 @@ class AskRequest(BaseModel):
 async def ask(req: AskRequest):
     session_id = req.session_id or str(uuid.uuid4())
 
-    try:
-        await session_service.get_session(app_name="electronics", user_id="user", session_id=session_id)
-    except Exception:
+    session = await session_service.get_session(app_name="electronics", user_id="user", session_id=session_id)
+    if session is None:
         await session_service.create_session(app_name="electronics", user_id="user", session_id=session_id)
 
     agent = make_agent()
@@ -184,8 +186,8 @@ HTML = """<!DOCTYPE html>
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #0f1117;
-    color: #e0e0e0;
+    background: #ffffff;
+    color: #374151;
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -193,11 +195,11 @@ HTML = """<!DOCTYPE html>
 
   header {
     padding: 16px 24px;
-    border-bottom: 1px solid #1e2130;
+    border-bottom: 1px solid #e5e7eb;
     display: flex;
     align-items: center;
     gap: 12px;
-    background: #13151f;
+    background: #f9fafb;
   }
 
   header .logo {
@@ -217,12 +219,13 @@ HTML = """<!DOCTYPE html>
     padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
   }
 
   .bubble {
-    max-width: 780px;
+    max-width: 768px;
     width: 100%;
+    margin: 0 auto;
   }
 
   .bubble.user { align-self: flex-end; }
@@ -236,21 +239,21 @@ HTML = """<!DOCTYPE html>
   }
 
   .bubble.user .bubble-inner {
-    background: #6c63ff;
-    color: #fff;
+    background: #f3f4f6;
+    color: #1f2937;
     border-bottom-right-radius: 4px;
   }
 
   .bubble.agent .bubble-inner {
-    background: #1a1d2e;
-    border: 1px solid #252840;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
     border-bottom-left-radius: 4px;
   }
 
   .sql-block {
     margin-top: 8px;
-    background: #0d0f1a;
-    border: 1px solid #2a2d45;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
     border-radius: 8px;
     overflow: hidden;
   }
@@ -259,8 +262,8 @@ HTML = """<!DOCTYPE html>
     padding: 4px 12px;
     font-size: 11px;
     color: #6b7280;
-    background: #13151f;
-    border-bottom: 1px solid #1e2130;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
     font-family: monospace;
     letter-spacing: 0.05em;
   }
@@ -268,7 +271,7 @@ HTML = """<!DOCTYPE html>
   .sql-block pre {
     padding: 10px 12px;
     font-size: 12px;
-    color: #7dd3fc;
+    color: #0f172a;
     font-family: 'Fira Code', 'Courier New', monospace;
     white-space: pre-wrap;
     word-break: break-word;
@@ -284,11 +287,11 @@ HTML = """<!DOCTYPE html>
     font-size: 13px;
   }
   .answer-text th, .answer-text td {
-    border: 1px solid #2a2d45;
+    border: 1px solid #e5e7eb;
     padding: 6px 10px;
     text-align: left;
   }
-  .answer-text th { background: #1e2130; color: #a5b4fc; }
+  .answer-text th { background: #f3f4f6; color: #4b5563; }
 
   .thinking {
     display: flex;
@@ -304,7 +307,7 @@ HTML = """<!DOCTYPE html>
   }
   .dot-flashing span {
     width: 6px; height: 6px;
-    background: #6c63ff;
+    background: #10a37f;
     border-radius: 50%;
     animation: blink 1.2s infinite;
   }
@@ -314,8 +317,8 @@ HTML = """<!DOCTYPE html>
 
   #input-area {
     padding: 16px 24px;
-    border-top: 1px solid #1e2130;
-    background: #13151f;
+    border-top: 1px solid #e5e7eb;
+    background: #ffffff;
     display: flex;
     gap: 10px;
     align-items: flex-end;
@@ -323,11 +326,11 @@ HTML = """<!DOCTYPE html>
 
   #question {
     flex: 1;
-    background: #1a1d2e;
-    border: 1px solid #252840;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
     border-radius: 10px;
     padding: 10px 14px;
-    color: #e0e0e0;
+    color: #374151;
     font-size: 14px;
     resize: none;
     min-height: 44px;
@@ -337,11 +340,11 @@ HTML = """<!DOCTYPE html>
     line-height: 1.5;
     transition: border-color 0.2s;
   }
-  #question:focus { border-color: #6c63ff; }
-  #question::placeholder { color: #4b5563; }
+  #question:focus { border-color: #10a37f; }
+  #question::placeholder { color: #9ca3af; }
 
   #send-btn {
-    background: #6c63ff;
+    background: #10a37f;
     border: none;
     border-radius: 10px;
     width: 44px; height: 44px;
@@ -350,8 +353,8 @@ HTML = """<!DOCTYPE html>
     flex-shrink: 0;
     transition: background 0.2s;
   }
-  #send-btn:hover { background: #5a52d5; }
-  #send-btn:disabled { background: #2a2d45; cursor: not-allowed; }
+  #send-btn:hover { background: #0d8a6a; }
+  #send-btn:disabled { background: #d1d5db; cursor: not-allowed; }
   #send-btn svg { width: 18px; height: 18px; fill: white; }
 
   .suggestions {
@@ -362,20 +365,20 @@ HTML = """<!DOCTYPE html>
   }
   .chip {
     padding: 6px 12px;
-    background: #1a1d2e;
-    border: 1px solid #252840;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
     border-radius: 20px;
     font-size: 12px;
-    color: #a5b4fc;
+    color: #4b5563;
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s;
     white-space: nowrap;
   }
-  .chip:hover { background: #252840; border-color: #6c63ff; }
+  .chip:hover { background: #f9fafb; border-color: #10a37f; }
 
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #252840; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
 </style>
 </head>
 <body>
@@ -443,8 +446,8 @@ HTML = """<!DOCTYPE html>
         const code = m.replace(/```\\w*\\n?/, '').replace(/```$/, '');
         return `<pre>${escHtml(code)}</pre>`;
       })
-      .replace(/\`([^\`]+)\`/g, '<code>$1</code>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/[*][*](.+?)[*][*]/g, '<strong>$1</strong>')
       .replace(/^\\|(.+)\\|$/gm, row => {
         if (/^[\\s|:-]+$/.test(row)) return '';
         const cells = row.split('|').filter(Boolean);
